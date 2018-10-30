@@ -1,0 +1,42 @@
+# install front
+wget -q -O- https://downloads.opennebula.org/repo/repo.key | apt-key add -
+echo "deb https://downloads.opennebula.org/repo/5.6/Ubuntu/16.04 stable opennebula" > /etc/apt/sources.list.d/opennebula.list
+apt-get update
+apt-get install opennebula opennebula-sunstone opennebula-gate opennebula-flow
+/usr/share/one/install_gems
+echo 'oneadmin:qwerty' >/var/lib/one/.one/one_auth
+systemctl restart opennebula 
+systemctl restart opennebula-sunstone
+oneuser show
+onedatastore list
+
+# installation node
+apt-get install opennebula-node
+service libvirtd restart
+service libvirt-bin restart
+su oneadmin
+ssh-keygen
+ssh keyscan localhost ceph-aio >> ~/.ssh/known_hosts 
+onehost create localhost -i kvm -v kvm
+
+
+# configuration ceph
+echo 'rbd_default_format = 2' >> /etc/ceph/ceph.conf
+ceph osd pool create one 64
+ceph auth get-or-create client.libvirt mon 'profile rbd' osd 'profile rbd pool=one'
+ceph auth get-key client.libvirt | tee client.libvirt.key
+ceph auth get client.libvirt -o ceph.client.libvirt.keyring
+cp client.libvirt.key /var/lib/one/
+cp ceph.client.libvirt.keyring /etc/ceph/
+UUID=`uuidgen`; echo $UUID
+cat > secret.xml <<EOF
+<secret ephemeral='no' private='no'>
+  <uuid>$UUID</uuid>
+  <usage type='ceph'>
+          <name>client.libvirt secret</name>
+  </usage>
+</secret>
+EOF
+cp secret.xml /var/lib/one/
+virsh -c qemu:///system secret-define secret.xml
+virsh -c qemu:///system secret-set-value --secret $UUID --base64 $(cat client.libvirt.key)

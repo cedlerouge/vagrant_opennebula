@@ -1,0 +1,118 @@
+mkdir /var/lib/one/cluster
+chown oneadmin:oneadmin /var/lib/one/cluster
+cat <<EOF> /var/lib/one/cluster/ds_ceph_rbd
+NAME = "cephds"
+DS_MAD = ceph
+TM_MAD = ceph
+DISK_TYPE = "RBD"
+POOL_NAME = "one"
+BRIDGE_LIST = "localhost"
+CEPH_HOST = "localhost:6789"
+CEPH_SECRET ="$UUID"
+CEPH_USER = "libvirt"
+DATASTORE_CAPACITY_CHECK="yes"
+EOF
+cat <<EOF>> /var/lib/one/cluster/ds_ceph_system
+NAME = "ceph_system"
+TM_MAD = ssh
+TYPE = "SYSTEM_DS"
+POOL_NAME = "one"
+BRIDGE_LIST = "localhost"
+CEPH_HOST = "localhost:6789"
+CEPH_SECRET ="$UUID"
+CEPH_USER = "libvirt"
+DATASTORE_CAPACITY_CHECK="yes"
+EOF
+cat <<EOF>> /var/lib/one/cluster/net_admin
+NAME        = "admin_bruz"
+DESCRIPTION = "bruz admin network"
+DNS         = "192.168.100.5"
+GATEWAY     = "192.168.100.253"
+PHYDEV      = "eth0"
+SECURITY_GROUPS = "0"
+
+VN_MAD      = "fw"
+
+BRIDGE = "br-admin"
+
+AR=[
+  TYPE = "IP4",
+  IP   = "192.168.100.200",
+  SIZE = "50"
+]
+EOF
+cat <<EOF>> /var/lib/one/cluster/net_pedago
+NAME        = "pedago_bruz"
+DESCRIPTION = "bruz pedago network"
+DNS         = "192.168.201.5"
+GATEWAY     = "192.168.201.253"
+PHYDEV      = "eth0"
+SECURITY_GROUPS = "0"
+
+VN_MAD      = "fw"
+
+BRIDGE = "br-pedago"
+
+AR=[
+  TYPE = "IP4",
+  IP   = "192.168.201.1",
+  SIZE = "50"
+]
+EOF
+cat <<EOF>> ds_raw.one
+NAME      = rdm_datastore
+TYPE      = "IMAGE_DS"
+DS_MAD    = "dev"
+TM_MAD    = "dev"
+DISK_TYPE = "BLOCK"
+EOF
+cat <<EOF>> image_superv
+NAME           = superv
+DATASTORE      = lvm_images                                                  
+TYPE           = OS                                                          
+PERSISTENT     = Yes                                                          
+SOURCE         = /var/lib/libvirt/images/superv.img                             
+SIZE           = 20G
+                                                                             
+DEV_PREFIX="hd"                                                              
+DRIVER="qcow2"
+EOF
+cat <<EOF>> vmsuperv.tpl 
+NAME           = TNAME
+USER           = oneadmin
+GROUP          = oneadmin
+
+TEMPLATE CONTENTS
+CONTEXT=[
+  NETWORK="YES",
+  SSH_PUBLIC_KEY="$USER[SSH_PUBLIC_KEY]" ]
+CPU="CPU"
+DESCRIPTION="TNAME"
+DISK=[
+  DRIVER="raw",
+  IMAGE="TNAME",
+  IMAGE_UNAME="oneadmin" ]
+FEATURES=[
+  ACPI="yes",
+  APIC="yes",
+  GUEST_AGENT="yes",
+  LOCALTIME="yes" ]
+GRAPHICS=[
+  LISTEN="0.0.0.0",
+  TYPE="VNC" ]
+HYPERVISOR="kvm"
+MEMORY="MEM"
+NIC=[
+  CONTEXT_FORCE_IPV4="Yes",
+  DNS="DNS_IP",
+  GATEWAY="GATEWAY_IP",
+  IP="IP",
+  NETWORK="admin_bruz",
+  NETWORK_ADDRESS="NETWORK",
+  NETWORK_MASK="255.255.255.0",
+  NETWORK_UNAME="oneadmin",
+  SEARCH_DOMAIN="afpi-bretagne.com" ]
+OS=[
+  ARCH="x86_64" ]
+VCPU="VCPU"
+
